@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Splitter</title>
+    <style>
+        body {
+            background-color: #000; /* Black background */
+            color: #e0e0e0; /* Slightly darker white for text */
+            font-family: Arial, sans-serif;
+        }
+        #textInput, #output {
+            width: 50%; /* Set the width of the input and output to match */
+            background-color: #1a1a1a; /* Very dark gray for input and output background */
+            color: #e0e0e0; /* Slightly darker white for text */
+            border: 1px solid #333; /* Slightly lighter border for a subtle contrast */
+            padding: 10px;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+            resize: vertical; /* Allows vertical resizing only */
+        }
+        .chunk-container {
+            background-color: #1c1c1c; /* Very dark gray, almost black for chunk background */
+            padding: 8px;
+            margin-bottom: 1rem;
+            border-radius: 5px; /* Slightly rounded corners for chunk containers */
+            border: 1px solid #2a2a2a; /* Even darker border for a subtle outline */
+        }
+        .chunk {
+            white-space: pre-wrap; /* Respect formatting of spaces and line breaks */
+            margin-bottom: 8px; /* Space before the copy button */
+        }
+        .copy-btn {
+            background-color: #2a2a2a; /* Dark gray for the button */
+            color: #e0e0e0; /* Slightly darker white for the button text */
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px; /* Rounded corners for the button */
+            cursor: pointer;
+        }
+        .copy-btn:hover {
+            background-color: #333; /* Slightly lighter on hover for feedback */
+        }
+        #testStatus, #duplicatesTestStatus {
+            color: #e0e0e0;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>XIV Message Splitter</h2>
+    <textarea id="textInput" rows="18" placeholder="Enter text here..."></textarea>
+    <div id="output"></div>
+    <div id="testStatus"></div>
+    <div id="duplicatesTestStatus"></div>
+
+    <script>
+    document.getElementById('textInput').addEventListener('input', function() {
+        splitText();
+    });
+
+    function splitText() {
+        const fullText = document.getElementById('textInput').value;
+        const outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = ''; // Clear previous output
+        let chunks = splitIntoChunks(fullText, 470);
+
+        chunks.forEach(chunk => {
+            displayChunk(chunk, outputDiv);
+        });
+
+        // Check if any chunks exceed 500 bytes
+        const byteExceeded = chunks.some(chunk => new TextEncoder().encode(chunk).length > 500);
+        displayTestStatus(byteExceeded, fullText, chunks.join(' '));
+        displayDuplicateWordsTest(fullText);
+    }
+
+    function splitIntoChunks(text, maxChars) {
+        let chunks = [];
+        let words = text.split(/\s+/);
+        let currentChunk = "";
+
+        words.forEach(word => {
+            let testChunk = currentChunk + (currentChunk.length > 0 ? " " : "") + word;
+            if (testChunk.length <= maxChars && new TextEncoder().encode(testChunk).length <= 500) {
+                currentChunk = testChunk;
+            } else {
+                if (currentChunk.length > 0) {
+                    chunks.push(currentChunk);
+                }
+                currentChunk = word;
+            }
+        });
+
+        if (currentChunk.length > 0) {
+            chunks.push(currentChunk);
+        }
+
+        return chunks;
+    }
+
+    function displayChunk(chunk, outputDiv) {
+        const chunkContainer = document.createElement('div');
+        chunkContainer.className = 'chunk-container';
+        const chunkDiv = document.createElement('div');
+        chunkDiv.className = 'chunk';
+        chunkDiv.textContent = chunk;
+        chunkContainer.appendChild(chunkDiv);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy';
+        copyBtn.className = 'copy-btn';
+        copyBtn.onclick = function() {
+            navigator.clipboard.writeText(chunk).then(() => {}, (err) => {
+                console.error('Error copying text: ', err);
+            });
+        };
+
+        chunkContainer.appendChild(copyBtn);
+        outputDiv.appendChild(chunkContainer);
+    }
+
+    function displayTestStatus(byteExceeded, originalText, concatenatedText) {
+        const testStatusDiv = document.getElementById('testStatus');
+        testStatusDiv.innerHTML = ''; // Clear previous status
+
+        // Byte size check
+        if (byteExceeded) {
+            testStatusDiv.innerHTML += '<div><span style="color: red;">Warning: One or more chunks exceed 500 bytes.</span></div>';
+        } else {
+            testStatusDiv.innerHTML += '<div><span style="color: #1a1a1a;">All chunks are within 500 bytes.</span></div>';
+        }
+
+        // Original vs concatenated text check
+        const originalCleaned = originalText.replace(/\s+/g, ' ').trim();
+        const concatenatedCleaned = concatenatedText.replace(/\s+/g, ' ').trim();
+        if (originalCleaned === concatenatedCleaned) {
+            testStatusDiv.innerHTML += '<div><span style="color: #1a1a1a;">Passed: Concatenated text matches original.</span></div>';
+        } else {
+            testStatusDiv.innerHTML += '<div><span style="color: red;">Failed: Concatenated text does not match original.</span></div>';
+        }
+    }
+
+function displayDuplicateWordsTest(text) {
+    const wordPattern = /\b(\w{3,})\b/g; // Adjusted to match words with 3 or more characters
+    let match, wordPositions = {}, wordCounts = {};
+
+    while ((match = wordPattern.exec(text.toLowerCase()))) {
+        const [word] = match;
+        if (!wordPositions[word]) wordPositions[word] = [];
+        wordPositions[word].push(match.index);
+        wordCounts[word] = (wordCounts[word] || 0) + 1;
+    }
+
+    // Filter for duplicates 2-5 times and calculate distances
+    let duplicates = Object.entries(wordCounts).filter(([word, count]) => count >= 2 && count <= 5)
+        .map(([word, count]) => {
+            let distances = wordPositions[word].slice(1).map((pos, i) => pos - wordPositions[word][i]).filter(distance => distance <= 300);
+            return { word, count, distances };
+        });
+
+    // Sort by count (descending), then alphabetically
+    duplicates.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
+
+    const duplicatesDiv = document.getElementById('duplicatesTestStatus');
+    if (duplicates.length > 0) {
+        let duplicatesList = '';
+        let lastCount = -1; // Track last count
+        duplicates.forEach(({ word, count, distances }) => {
+            // Adjust opacity based on count
+            let opacity = 0.5 + count * 0.1; // Decrease opacity as count decreases
+            let textColor = `rgba(224, 224, 224, ${opacity})`; // Slightly darker white with opacity
+            // Add a new line only when count changes
+            if (count !== lastCount) { 
+                duplicatesList += '<br>';
+                lastCount = count;
+            }
+            duplicatesList += `<span style="color: ${textColor}">${word}: ${count}${distances.length > 0 ? ` (${distances.join(', ')})` : ''}</span><br>`;
+        });
+        duplicatesDiv.innerHTML = `<div>Duplicated words (2-5 times, excluding 2 characters or less):<br>${duplicatesList}</div>`;
+    } else {
+        duplicatesDiv.innerHTML = '<div>No words are duplicated 2 to 5 times (excluding 2 characters or less).</div>';
+    }
+}
+
+
+    </script>
+</body>
+</html>
