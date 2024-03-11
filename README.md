@@ -1,9 +1,5 @@
-XIV Message Splitter is a tool that splits up input text into chunks that fit inside a single FFXIV chat message.
+XIV Message Splitter is a simple HTML + Javascript utility for splitting up text into chunks that fit inside a single FFXIV chat message. This is mostly useful for roleplaying.
 
-This is useful for roleplaying, where one may type more text than can fit into a message.
+This tool is ideal for players who write their messages in web-based text editors and prefer a splitting tool in the same browser window that also doesn't clutter up the game window.
 
-XIV Message Splitter is a simple .html file which uses JavaScript for the logic.
-
-Tools like this already exist, however this tool is nice for those who write in external web-based programs such as Google Docs and prefer a tool to use in the same browser window, without cluttering up the game window.
-
-XIV Message Splitter was also written with the help of ChatGPT.
+XIV Message Splitter was written mostly with the help of ChatGPT.
